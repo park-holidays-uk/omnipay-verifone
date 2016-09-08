@@ -1,5 +1,5 @@
 {
-    "name": "omnipay/verifone",
+    "name": "park-holidays-uk/omnipay-verifone",
     "type": "library",
     "description": "WIP Verifone (Commidea) Package for Omnipay (on-site payment gateway), using Chris Yallop's code: https://github.com/adnamsplc/verifone ",
     "keywords": [
