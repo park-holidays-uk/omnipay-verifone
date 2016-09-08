@@ -7,8 +7,8 @@ Requires omnipay.php in the Laravel config directory, see the config.php file fo
 
 #### Set up gateway and card
 ```
-use Omnipay\\Omnipay;
-use Omnipay\\Common\\CreditCard;
+use Omnipay\Omnipay;
+use Omnipay\Common\CreditCard;
 
 class WhateverController extends Controller
 {
