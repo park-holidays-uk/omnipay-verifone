@@ -5,16 +5,6 @@ namespace Omnipay\Verifone;
 use Omnipay\Common\AbstractGateway;
 use Omnipay\Common\CreditCard;
 
-use Omnipay\Verifone\ProcessMsgResponse;
-use Omnipay\Verifone\ClientHeader;
-use Omnipay\Verifone\ProcessMsg;
-use Omnipay\Verifone\Message;
-
-use Omnipay\Verifone\TransactionResponse;
-use Omnipay\Verifone\PaymentChargeRequest;
-use Omnipay\Verifone\PaymentAuthRequest;
-use Omnipay\Verifone\PaymentResult;
-
 use Omnipay\Verifone\Request\RequestInterface;
 use Omnipay\Verifone\Request\TransactionConfirmationRequest;
 use Omnipay\Verifone\Request\TransactionRejectionRequest;
@@ -38,16 +28,9 @@ class Gateway extends AbstractGateway
 {
 
     private $client;
-
-    private $systemId;
-    private $systemPasscode;
-    private $systemGUID;
-
-    private $accountId;
-    private $accountPasscode;
-    private $accountGUID;
     private $testMode;
-
+    private $requestWS;
+    private $verifoneConfig;
     private $ProcessingDB;
 
     public function __construct()
@@ -57,11 +40,13 @@ class Gateway extends AbstractGateway
 
         $this->testMode = $defaults['testMode'];
 
+        $this->verifoneConfig = config('omnipay.verifone');
+
         if(!$this->testMode)
         {
-            $this->client = new Client(config('omnipay.client'));
+            $this->client = new Client($this->verifoneConfig['client']);
         } else {
-            $this->client = new Client(config('omnipay.testClient'));
+            $this->client = new Client($this->verifoneConfig['testClient']);
         }
 
     }
@@ -77,64 +62,49 @@ class Gateway extends AbstractGateway
     {
 
         return [
-            'accountId' => config('omnipay.accountId'),
-            'accountGUID' => config('omnipay.accountGUID'),
+            'accountId' => $this->verifoneConfig['accountId'],
+            'accountGUID' => $this->verifoneConfig['accountGUID'],
             'testMode' => $this->testMode,
         ];
 
     }
 
-    public function setTestMode($boolean = true)
-    {
-
-        $this->testMode = $boolean;
-        //Test SOAP details
-        if(!$this->testMode)
-        {
-            $this->client = new Client(config('omnipay.client'));
-        } else {
-            $this->client = new Client(config('omnipay.testClient'));
-        }
-    }
-
     /*
      * Authorize amount on the given card
      */
-    public function authorise(CreditCard $card, Payment $payment)
+    public function authorise($options)
     {
 
+        $card = $options['card'];
+        $amount = $options['amount'];
+        $transactionId = $options['transactionId'];
+
         $ecomTrans = new EcommerceTransactionRequestMessage(
-            config('omnipay.accountId'), //Account id
-            config('omnipay.accountPasscode'), //Account passcode
+            $this->verifoneConfig['accountId'], //Account id
+            $this->verifoneConfig['accountPasscode'], //Account passcode (seems to be ok if empty)
             str_replace(" ", "", $card->getNumber()), //pan
             $card->getCvv(), //csc / cvv
             $card->getExpiryDate('ym'), //expiry date (in yymm format, for some reason)
-            $payment->TotalAmount //txn amount
+            $amount //txn amount
         );
 
-        $ecomTrans->setMerchantReference($payment->TransactionId);
+        $ecomTrans->setMerchantReference($transactionId);
 
         $transReq = new TransactionRequest(
-            config('omnipay.systemId'), //System id
-            config('omnipay.systemGUID'), //System GUID
-            config('omnipay.systemPasscode'), //System passcode
+            $this->verifoneConfig['systemId'], //System id
+            $this->verifoneConfig['systemGUID'], //System GUID
+            $this->verifoneConfig['systemPasscode'], //System passcode
             $ecomTrans
         );
 
-        $response = $this->send($transReq);
+        $this->requestWS = $transReq;
 
-        // @todo This should probably be set on the property txnMsg then the client can call getTxnMsg()
-        // and still access the debug info.
-        // e.g. $response->setTxnRespMsg(new TransactionResponseMessage($response->getMessageData());
-        // and then the client can call $response->getTxnMsg(); and still call $response->GetDebugInfo();
-        // or the response object just figures out the correct message to instantiate. Mmm, who's responsible for what??
-        // or the response message has the whole response object set for retrieval.
-        return new TransactionResponseMessage($response->getMessageData());
+        return $this;
 
     }
 
     /**
-     * Capture a previously authorised transaction
+     * Capture an authorised transaction
      *
      * @param TransactionResponseMessage $transactionResponseMessage
      * @return TransactionResponseMessage
@@ -145,33 +115,41 @@ class Gateway extends AbstractGateway
         $transactionConfirmationRequestMessage = new TransactionConfirmationRequestMessage($transactionResponseMessage->getTransactionId());
 
         $transactionConfirmationRequest = new TransactionConfirmationRequest(
-            config('omnipay.systemId'), //System id
-            config('omnipay.systemGUID'), //System GUID
-            config('omnipay.systemPasscode'), //System passcode
+            $this->verifoneConfig['systemId'], //System id
+            $this->verifoneConfig['systemGUID'], //System GUID
+            $this->verifoneConfig['systemPasscode'], //System passcode
             $transactionResponseMessage->getProcessingDb(),
             $transactionConfirmationRequestMessage
         );
 
-        $transactionConfirmationResponse = $this->send($transactionConfirmationRequest);
+        $this->requestWS = $transactionConfirmationRequest;
 
-        return new TransactionResponseMessage($transactionConfirmationResponse->getMessageData());
+        return $this;
 
     }
 
     /*
      * Authorize and capture payment on the given card in one method
      */
-    public function purchase(CreditCard $card, Payment $payment)
+    public function purchase($options)
     {
 
-        $transaction = $this->authorise($card, $payment);
+        $response = $this->authorise($options)->send();
 
-        return $this->capture($transaction);
+        if($response->isSuccessful())
+		{
+
+            return $this->capture($response);
+
+		}
+
+        //If unsuccessful
+        return new TransactionResponseMessage($response->getData());
 
     }
 
     /**
-     * Reject transaction.
+     * Reject transaction? Not properly implemented into Ominpay yet, beware!
      *
      * @param TransactionResponseMessage $transactionResponseMessage
      * @param string $pan
@@ -184,16 +162,18 @@ class Gateway extends AbstractGateway
             (string) $pan
         );
         $transactionRejectionRequest = new TransactionRejectionRequest(
-            config('omnipay.systemId'), //System id
-            config('omnipay.systemGUID'), //System GUID
-            config('omnipay.systemPasscode'), //System passcode
+            $this->verifoneConfig['systemId'], //System id
+            $this->verifoneConfig['systemGUID'], //System GUID
+            $this->verifoneConfig['systemPasscode'], //System passcode
             $transactionResponseMessage->getProcessingDb(),
             $transactionRejectionRequestMessage
         );
-        $transactionRejectionResponse = $this->send($transactionRejectionRequest);
-        return new TransactionResponseMessage($transactionRejectionResponse->getMessageData());
-    }
 
+        $this->requestWS = $transactionRejectionResponse;
+
+        return $this;
+
+    }
 
     /**
      * Send a message to the Verifone WS.
@@ -201,8 +181,10 @@ class Gateway extends AbstractGateway
      * @param RequestInterface $request
      * @return Response
      */
-    protected function send(RequestInterface $request)
+    public function send()
     {
+
+        $request = $this->requestWS;
 
         $rawResponse = $this->client->ProcessMsg(
             $request->getMessage()
@@ -216,7 +198,7 @@ class Gateway extends AbstractGateway
             );
         }
 
-        return $response;
+        return new TransactionResponseMessage($response->getMessageData());
 
     }
 
@@ -247,6 +229,19 @@ class Gateway extends AbstractGateway
             }
         }
         return (int) implode('', $integers);
+    }
+
+    public function setTestMode($boolean = true)
+    {
+
+        $this->testMode = $boolean;
+        //Test SOAP details
+        if(!$this->testMode)
+        {
+            $this->client = new Client(config('omnipay.client'));
+        } else {
+            $this->client = new Client(config('omnipay.testClient'));
+        }
     }
 
 }

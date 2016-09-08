@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Adnams Tours API.
  *
@@ -38,7 +39,7 @@ class TransactionResponseMessage extends AbstractResponseMessage
      */
     public function init()
     {
-        $this->checkForErrors();
+        //$this->checkForErrors();
     }
 
     /**
@@ -169,6 +170,19 @@ class TransactionResponseMessage extends AbstractResponseMessage
     public function isApproved()
     {
         return 'APPROVED' == $this->getTxnResult();
+    }
+
+    /**
+     * Is the response successful?
+     *
+     * @return boolean
+     */
+    public function isSuccessful()
+    {
+        if($this->getTxnResult() == 'AUTHORISED' || $this->getTxnResult() == 'CHARGED')
+            return true;
+
+        return false;
     }
 
     /**
@@ -400,6 +414,36 @@ class TransactionResponseMessage extends AbstractResponseMessage
     }
 
     /**
+     * Get the original request which generated this response
+     *
+     * @return RequestInterface
+     */
+    public function getRequest()
+    {
+        return '';
+    }
+
+    /**
+     * Does the response require a redirect?
+     *
+     * @return boolean
+     */
+    public function isRedirect()
+    {
+        return false;
+    }
+
+    /**
+     * Is the transaction cancelled by the user?
+     *
+     * @return boolean
+     */
+    public function isCancelled()
+    {
+        return false;
+    }
+
+    /**
      * Return the response time of this transaction.
      *
      * @return string
@@ -407,6 +451,47 @@ class TransactionResponseMessage extends AbstractResponseMessage
     public function getResponseTime()
     {
         return (string) $this->getResponseMessage()->resultdatetimestring;
+    }
+
+    /**
+     * Gateway Reference
+     *
+     * @return null|string A reference provided by the gateway to represent this transaction
+     */
+    public function getTransactionReference()
+    {
+        return (string) $this->getResponseMessage()->tid;
+    }
+
+    /**
+     * Response Message
+     *
+     * @return null|string A response message from the payment gateway
+     */
+    public function getMessage()
+    {
+        return (string) $this->getResponseMessage()->authmessage;
+    }
+
+    /**
+     * Response code
+     *
+     * @return null|string A response code from the payment gateway
+     */
+    public function getCode()
+    {
+        return (string) $this->getResponseMessage()->authcode;
+    }
+
+    /**
+     * Get the raw data array for this message. The format of this varies from gateway to
+     * gateway, but will usually be either an associative array, or a SimpleXMLElement.
+     *
+     * @return mixed
+     */
+    public function getData()
+    {
+        return $this->responseData;
     }
 
     /**

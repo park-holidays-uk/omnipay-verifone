@@ -16,10 +16,11 @@ namespace Omnipay\Verifone\ResponseMessage;
  * @package    Verifone\Model
  * @copyright  Copyright (c) 2014 Adnams Plc (http://adnams.co.uk)
  */
-abstract class AbstractResponseMessage
+abstract class AbstractResponseMessage implements \Omnipay\Common\Message\ResponseInterface
 {
     /** @var \SimpleXMLElement */
     private $responseMessage;
+    protected $responseData;
 
     /**
      * Constructor.
@@ -28,6 +29,8 @@ abstract class AbstractResponseMessage
      */
     public function __construct($responseMessage)
     {
+        $this->responseData = $responseMessage;
+
         $responseMessage = html_entity_decode($responseMessage);
 
         $this->responseMessage = simplexml_load_string(
