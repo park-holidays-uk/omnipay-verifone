@@ -20,8 +20,6 @@ use Omnipay\Verifone\ResponseMessage\AbstractResponseMessage;
 use Omnipay\Verifone\ResponseMessage\ErrorResponseMessage;
 use Omnipay\Verifone\ResponseMessage\TransactionResponseMessage;
 
-use App\Models\Payment;
-
 use Zend\Soap\Client;
 
 class Gateway extends AbstractGateway
