@@ -1,0 +1,23 @@
+{
+    "name": "omnipay/verifone",
+    "type": "library",
+    "description": "WIP Verifone (Commidea) Package for Omnipay (on-site payment gateway), using Chris Yallop's code: https://github.com/adnamsplc/verifone ",
+    "keywords": [
+        "verifone"
+    ],
+    "homepage": "https://github.com/park-holidays-uk/omnipay-verifone",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Omnipay\\Verifone\\" : "src/",
+            "Omnipay\\Verifone\\Exception\\" : "Exception/",
+            "Omnipay\\Verifone\\Request\\" : "Request/",
+            "Omnipay\\Verifone\\RequestMessage\\" : "RequestMessage/",
+            "Omnipay\\Verifone\\ResponseMessage\\" : "ResponseMessage/"
+        }
+    },
+    "require": {
+        "omnipay/common": "~2.0",
+        "zendframework/zend-soap": "^2.6"
+    }
+}
