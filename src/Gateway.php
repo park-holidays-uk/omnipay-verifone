@@ -26,26 +26,27 @@ class Gateway extends AbstractGateway
 {
 
     private $client;
-    private $testMode;
+
     private $requestWS;
-    private $verifoneConfig;
     private $ProcessingDB;
+
+    private $testMode;
+    private $systemId;
+    private $systemPasscode;
+    private $systemGUID;
+    private $accountId;
+    private $clientURL;
+    private $testClientURL;
+    private $accountPasscode;
 
     public function __construct()
     {
 
-        $defaults = config('omnipay.defaults');
+        $this->testMode = false;
+        $this->clientURL = 'https://txn.cxmlpg.com/XML4/commideagateway.asmx?WSDL';
+        $this->testClientURL = 'https://txn-test.cxmlpg.com/XML4/commideagateway.asmx?WSDL';
 
-        $this->testMode = $defaults['testMode'];
-
-        $this->verifoneConfig = config('omnipay.verifone');
-
-        if(!$this->testMode)
-        {
-            $this->client = new Client($this->verifoneConfig['client']);
-        } else {
-            $this->client = new Client($this->verifoneConfig['testClient']);
-        }
+        $this->client = new Client($this->clientURL);
 
     }
 
@@ -60,17 +61,45 @@ class Gateway extends AbstractGateway
     {
 
         return [
-            'accountId' => $this->verifoneConfig['accountId'],
-            'accountGUID' => $this->verifoneConfig['accountGUID'],
             'testMode' => $this->testMode,
+            'systemId' => $this->systemId,
+            'systemPasscode' => $this->systemPasscode,
+            'systemGUID' => $this->systemGUID,
+            'accountId' => $this->accountId,
+            'accountPasscode' => $this->accountPasscode
         ];
 
+    }
+
+    public function setSystemId($value)
+    {
+        $this->systemId = $value;
+    }
+
+    public function setSystemPasscode($value)
+    {
+        $this->systemPasscode = $value;
+    }
+
+    public function setSystemGUID($value)
+    {
+        $this->systemGUID = $value;
+    }
+
+    public function setAccountId($value)
+    {
+        $this->accountId = $value;
+    }
+
+    public function setAccountPasscode($value)
+    {
+        $this->accountPasscode = $value;
     }
 
     /*
      * Authorize amount on the given card
      */
-    public function authorise($options)
+    public function authorize($options)
     {
 
         $card = $options['card'];
@@ -78,8 +107,8 @@ class Gateway extends AbstractGateway
         $transactionId = $options['transactionId'];
 
         $ecomTrans = new EcommerceTransactionRequestMessage(
-            $this->verifoneConfig['accountId'], //Account id
-            $this->verifoneConfig['accountPasscode'], //Account passcode (seems to be ok if empty)
+            $this->accountId, //Account id
+            $this->accountPasscode, //Account passcode (seems to be ok if empty)
             str_replace(" ", "", $card->getNumber()), //pan
             $card->getCvv(), //csc / cvv
             $card->getExpiryDate('ym'), //expiry date (in yymm format, for some reason)
@@ -89,9 +118,9 @@ class Gateway extends AbstractGateway
         $ecomTrans->setMerchantReference($transactionId);
 
         $transReq = new TransactionRequest(
-            $this->verifoneConfig['systemId'], //System id
-            $this->verifoneConfig['systemGUID'], //System GUID
-            $this->verifoneConfig['systemPasscode'], //System passcode
+            $this->systemId, //System id
+            $this->systemGUID, //System GUID
+            $this->systemPasscode, //System passcode
             $ecomTrans
         );
 
@@ -102,7 +131,7 @@ class Gateway extends AbstractGateway
     }
 
     /**
-     * Capture an authorised transaction
+     * Capture an authorized transaction
      *
      * @param TransactionResponseMessage $transactionResponseMessage
      * @return TransactionResponseMessage
@@ -113,9 +142,9 @@ class Gateway extends AbstractGateway
         $transactionConfirmationRequestMessage = new TransactionConfirmationRequestMessage($transactionResponseMessage->getTransactionId());
 
         $transactionConfirmationRequest = new TransactionConfirmationRequest(
-            $this->verifoneConfig['systemId'], //System id
-            $this->verifoneConfig['systemGUID'], //System GUID
-            $this->verifoneConfig['systemPasscode'], //System passcode
+            $this->systemId, //System id
+            $this->systemGUID, //System GUID
+            $this->systemPasscode, //System passcode
             $transactionResponseMessage->getProcessingDb(),
             $transactionConfirmationRequestMessage
         );
@@ -132,7 +161,7 @@ class Gateway extends AbstractGateway
     public function purchase($options)
     {
 
-        $response = $this->authorise($options)->send();
+        $response = $this->authorize($options)->send();
 
         if($response->isSuccessful())
 		{
@@ -160,9 +189,9 @@ class Gateway extends AbstractGateway
             (string) $pan
         );
         $transactionRejectionRequest = new TransactionRejectionRequest(
-            $this->verifoneConfig['systemId'], //System id
-            $this->verifoneConfig['systemGUID'], //System GUID
-            $this->verifoneConfig['systemPasscode'], //System passcode
+            $this->systemId, //System id
+            $this->systemGUID, //System GUID
+            $this->systemPasscode, //System passcode
             $transactionResponseMessage->getProcessingDb(),
             $transactionRejectionRequestMessage
         );
@@ -236,9 +265,9 @@ class Gateway extends AbstractGateway
         //Test SOAP details
         if(!$this->testMode)
         {
-            $this->client = new Client(config('omnipay.client'));
+            $this->client = new Client($this->clientURL);
         } else {
-            $this->client = new Client(config('omnipay.testClient'));
+            $this->client = new Client($this->testClientURL);
         }
     }
 

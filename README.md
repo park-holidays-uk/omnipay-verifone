@@ -1,7 +1,7 @@
 # omnipay-verifone
 Verifone (Commidea) Package for Omnipay
 
-Requires omnipay.php in the Laravel config directory, see the config.php file for template contents.
+Send settings to the client with the usual Omnipay setSetting('value') methods
 
 ### Example of use:
 
