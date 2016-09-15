@@ -1,7 +1,7 @@
 # omnipay-verifone
 Verifone (Commidea) Package for Omnipay
 
-Send settings to the client with the usual Omnipay setSetting('value') methods
+Send settings to the gateway with the usual Omnipay setSetting('value') methods.
 
 ### Example of use:
 
@@ -36,11 +36,11 @@ $amount = '1'; //How much is payment for?
 $validateResult = $card->validate();
 ```
 
-#### Method 1: Authorise and capture separately:
+#### Method 1: Authorize and capture separately:
 
 ```
 //Authorise
-$response = $verifone->authorise([
+$response = $verifone->authorize([
 	'card' => $card,
 	'amount' => $amount,
 	'transactionId' => $transactionId
